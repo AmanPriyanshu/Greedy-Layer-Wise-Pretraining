@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import cv2
+from matplotlib import pyplot as plt
 
 class GLWP:
 	def __init__(self, arr_neurons=[400, 256, 100], input_dims=784, classes=10, batch_size=64, epochs=10):
@@ -109,6 +110,7 @@ class GLWP:
 		optimizer = torch.optim.SGD(model.parameters(), lr=0.025)
 		model.train()
 		model = model.to(self.device)
+		progress = []
 		for epoch in range(self.epochs):
 			bar = tqdm(zip(x, y), total=len(x))
 			running_loss, running_acc = [], []
@@ -123,9 +125,29 @@ class GLWP:
 				preds = torch.argmax(outputs, 1)
 				acc = torch.mean((preds==batch_y).float())
 				running_acc.append(acc.cpu().item())
-				bar.set_description(str({'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4), 'running_acc': round(sum(running_acc)/len(running_acc), 4)}))
+				pp = {'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4), 'running_acc': round(sum(running_acc)/len(running_acc), 4)}
+				bar.set_description(str(pp))
 			bar.close()
+			progress.append(pp)
+		return progress
 
+def create_graphs(progress, progress_pretrained, name):
+	loss = [i['running_loss'] for i in progress]
+	acc = [i['running_acc'] for i in progress]
+	loss_pretrained = [i['running_loss'] for i in progress_pretrained]
+	acc_pretrained = [i['running_acc'] for i in progress_pretrained]
+	plt.cla()
+	plt.plot(np.arange(len(loss))+1, loss, label='Not Pre-Trained')
+	plt.plot(np.arange(len(loss_pretrained))+1, loss_pretrained, label='Pre-Trained')
+	plt.title("Loss")
+	plt.legend()
+	plt.savefig("Loss_"+name+"_unsupervised.png")
+	plt.cla()
+	plt.plot(np.arange(len(acc))+1, acc, label='Not Pre-Trained')
+	plt.plot(np.arange(len(acc_pretrained))+1, acc_pretrained, label='Pre-Trained')
+	plt.title("Accuracy")
+	plt.legend()
+	plt.savefig("Acc_"+name+"_unsupervised.png")
 
 def main_mnist():
 	import pandas as pd
@@ -142,12 +164,13 @@ def main_mnist():
 
 	print("\nNot Pre-Trained")
 	model = glwp.get_untrained_model()
-	glwp.train_classifier(y_train, scaled, model)
+	progress_not_pretrained = glwp.train_classifier(y_train, scaled, model)
 
 	print("\nPre-Trained")
 	glwp.train(scaled)
 	model = glwp.final_model
-	glwp.train_classifier(y_train, scaled, model)
+	progress_pretrained = glwp.train_classifier(y_train, scaled, model)
+	create_graphs(progress_not_pretrained, progress_pretrained, 'MNIST')
 
 def main_cifar():
 	from data.CIFAR.load_cifar import load_data
@@ -158,12 +181,13 @@ def main_cifar():
 
 	print("\nNot Pre-Trained")
 	model = glwp.get_untrained_model()
-	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
+	progress_not_pretrained = glwp.train_classifier(train_y.astype(np.int64), scaled, model)
 
 	print("\nPre-Trained")
 	glwp.train(scaled)
 	model = glwp.final_model
-	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
+	progress_pretrained = glwp.train_classifier(train_y.astype(np.int64), scaled, model)
+	create_graphs(progress_not_pretrained, progress_pretrained, 'CIFAR')
 
 if __name__ == '__main__':
 	main_cifar()
