@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
+import cv2
 
 class GLWP:
 	def __init__(self, arr_neurons=[400, 256, 100], input_dims=784, classes=10, batch_size=64, epochs=10):
@@ -11,6 +12,7 @@ class GLWP:
 		self.epochs = epochs
 		self.models = []
 		self.final_model = None
+		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	def get_untrained_model(self):
 		models = []
@@ -42,6 +44,7 @@ class GLWP:
 
 	def train_single_layer(self, layer_num, dataset):
 		model = self.get_single_layer_model(self.arr_neurons[layer_num], self.arr_neurons[layer_num+1])
+		model = model.to(self.device)
 		model.train()
 		x = np.array([dataset[i*self.batch_size:(i+1)*self.batch_size] for i in range(len(dataset)//self.batch_size)], dtype=np.float32)
 		x = torch.from_numpy(x)
@@ -51,18 +54,19 @@ class GLWP:
 			bar = tqdm(x)
 			running_loss = []
 			for batch_idx, batch in enumerate(bar):
+				batch = batch.to(self.device)
 				preds = model(batch)
 				optimizer.zero_grad()
 				loss = criterion(preds, batch)
 				loss.backward()
 				optimizer.step()
-				running_loss.append(loss.item())
+				running_loss.append(loss.cpu().item())
 				bar.set_description(str({'layer_num': layer_num, 'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4)}))
 			bar.close()
 
 		with torch.no_grad():
-			weight = model[0].weight.detach().numpy()
-			bias = model[0].bias.detach().numpy()
+			weight = model[0].weight.detach().cpu().numpy()
+			bias = model[0].bias.detach().cpu().numpy()
 			return weight, bias
 
 	def generate_dataset(self, layer_index, dataset):
@@ -73,10 +77,12 @@ class GLWP:
 		for idx in range(layer_index):
 			model = self.models[idx]
 			model.eval()
+			model = model.to(self.device)
 			for batch_idx, batch in enumerate(tqdm(x, desc="Generating - Layer: "+str(idx+1))):
+				batch = batch.to(self.device)
 				preds = model(batch)
 				x[batch_idx] = preds.detach()
-		x = [i.numpy() for i in x]
+		x = [i.cpu().numpy() for i in x]
 		return np.concatenate(x, axis=0)
 
 	def train(self, dataset):
@@ -102,23 +108,26 @@ class GLWP:
 		print("Training Classifiers...")
 		optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 		model.train()
+		model = model.to(self.device)
 		for epoch in range(self.epochs):
 			bar = tqdm(zip(x, y), total=len(x))
 			running_loss, running_acc = [], []
 			for batch_idx, (batch_x, batch_y) in enumerate(bar):
+				batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
 				outputs = model(batch_x)
 				optimizer.zero_grad()
 				loss = criterion(outputs, batch_y)
 				loss.backward()
 				optimizer.step()
-				running_loss.append(loss.item())
+				running_loss.append(loss.cpu().item())
 				preds = torch.argmax(outputs, 1)
 				acc = torch.mean((preds==batch_y).float())
-				running_acc.append(acc.item())
+				running_acc.append(acc.cpu().item())
 				bar.set_description(str({'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4), 'running_acc': round(sum(running_acc)/len(running_acc), 4)}))
 			bar.close()
 
-if __name__ == '__main__':
+
+def main_mnist():
 	import pandas as pd
 	df_train = pd.read_csv("./data/MNIST.csv")
 	df_train = df_train.values
@@ -139,3 +148,22 @@ if __name__ == '__main__':
 	glwp.train(scaled)
 	model = glwp.final_model
 	glwp.train_classifier(y_train, scaled, model)
+
+def main_cifar():
+	from data.CIFAR.load_cifar import load_data
+	train_x, train_y, test_x, test_y = load_data("./data/CIFAR/")
+	train_x = np.reshape(train_x, (len(train_x), -1))
+	glwp = GLWP(arr_neurons=[2048, 516, 100], input_dims=3072)
+	scaled = train_x.copy()/255
+
+	print("\nNot Pre-Trained")
+	model = glwp.get_untrained_model()
+	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
+
+	print("\nPre-Trained")
+	glwp.train(scaled)
+	model = glwp.final_model
+	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
+
+if __name__ == '__main__':
+	main_cifar()	
