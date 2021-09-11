@@ -1,6 +1,16 @@
 # Greedy-Layer-Wise-Pretraining
 Training DNNs are normally memory and computationally expensive. Therefore, we explore greedy layer-wise pretraining.
 
+# Images:
+
+## Supervised:
+
+![supervised](/images/supervised.png)
+
+## Unsupervised:
+
+![unsupervised](/images/unsupervised.png)
+
 ## Without vs With Unsupervised Pre-Training : CIFAR
 
  
