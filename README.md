@@ -4,6 +4,8 @@ Training DNNs are normally memory and computationally expensive. Therefore, we e
 ## Without vs With Pre-Training : CIFAR
 
 <td colspan=3>Without Pre-Training <td colspan=3>With Pre-Training
+  
+
 | Epoch | Loss   | Accuracy | | Epoch | Loss   | Accuracy |
 | ----- | ------ | -------- |-| ----- | ------ | -------- |
 | 1     | 2.204  | 0.1872   | | 1     | 1.9574 | 0.2998   |
