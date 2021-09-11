@@ -1,7 +1,7 @@
 # Greedy-Layer-Wise-Pretraining
 Training DNNs are normally memory and computationally expensive. Therefore, we explore greedy layer-wise pretraining.
 
-## Without vs With Pre-Training : CIFAR
+## Without vs With Unsupervised Pre-Training : CIFAR
 
  
 | Without | Pre- | Training | | With | Pre- | Training |
@@ -19,6 +19,24 @@ Training DNNs are normally memory and computationally expensive. Therefore, we e
 | 9     | 1.5762 | 0.4355   | | 9     | 1.461  | 0.4813   |
 | 10    | 1.544  | 0.447    | | 10    | 1.433  | 0.4916   |
 
+
+## Without vs With Supervised Pre-Training : CIFAR
+
+ 
+| Without | Pre- | Training | | With | Pre- | Training |
+| ----- | ------ | -------- |-| ----- | ------ | -------- |
+| Epoch | Loss   | Accuracy | | Epoch | Loss   | Accuracy |
+| ----- | ------ | -------- |-| ----- | ------ | -------- |
+| 1     | 2.204  | 0.1872   | | 1     | 1.1234 | 0.6031   |
+| 2     | 1.9746 | 0.2861   | | 2     | 1.0139 | 0.6436   |
+| 3     | 1.8704 | 0.3281   | | 3     | 0.969 | 0.66   |
+| 4     | 1.803  | 0.3534   | | 4     | 0.932  | 0.6735   |
+| 5     | 1.743  | 0.3769   | | 5     | 0.8983 | 0.6855   |
+| 6     | 1.6938 | 0.3929   | | 6     | 0.865 | 0.6993   |
+| 7     | 1.6509 | 0.409    | | 7     | 0.8364 | 0.7105   |
+| 8     | 1.6117 | 0.4234   | | 8     | 0.8034 | 0.7219   |
+| 9     | 1.5762 | 0.4355   | | 9     | 0.7789 | 0.73   |
+| 10    | 1.544  | 0.447    | | 10    | 0.7514  | 0.7409   |
 
 
 
