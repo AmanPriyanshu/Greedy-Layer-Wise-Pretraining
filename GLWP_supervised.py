@@ -37,31 +37,35 @@ class GLWP:
 		model = torch.nn.Sequential(
 				torch.nn.Linear(input_dims, hidden_dims), 
 				torch.nn.ReLU(), 
-				torch.nn.Linear(hidden_dims, input_dims), 
-				torch.nn.ReLU()
+				torch.nn.Linear(hidden_dims, self.classes)
 				)
 		return model
 
-	def train_single_layer(self, layer_num, dataset):
+	def train_single_layer(self, layer_num, labels, dataset):
 		model = self.get_single_layer_model(self.arr_neurons[layer_num], self.arr_neurons[layer_num+1])
 		model = model.to(self.device)
 		model.train()
 		x = np.array([dataset[i*self.batch_size:(i+1)*self.batch_size] for i in range(len(dataset)//self.batch_size)], dtype=np.float32)
 		x = torch.from_numpy(x)
-		criterion = torch.nn.MSELoss()
+		y = np.array([labels[i*self.batch_size:(i+1)*self.batch_size] for i in range(len(dataset)//self.batch_size)])
+		y = torch.from_numpy(y)
+		criterion = torch.nn.CrossEntropyLoss()
 		optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 		for epoch in range(self.epochs):
-			bar = tqdm(x)
-			running_loss = []
-			for batch_idx, batch in enumerate(bar):
-				batch = batch.to(self.device)
-				preds = model(batch)
+			bar = tqdm(zip(x, y), total=len(x))
+			running_loss, running_acc = [], []
+			for batch_idx, (batch_x, batch_y) in enumerate(bar):
+				batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+				outputs = model(batch_x)
 				optimizer.zero_grad()
-				loss = criterion(preds, batch)
+				loss = criterion(outputs, batch_y)
 				loss.backward()
 				optimizer.step()
 				running_loss.append(loss.cpu().item())
-				bar.set_description(str({'layer_num': layer_num, 'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4)}))
+				preds = torch.argmax(outputs, 1)
+				acc = torch.mean((preds==batch_y).float())
+				running_acc.append(acc.cpu().item())
+				bar.set_description(str({'epoch': epoch+1, 'running_loss': round(sum(running_loss)/len(running_loss), 4), 'running_acc': round(sum(running_acc)/len(running_acc), 4)}))
 			bar.close()
 
 		with torch.no_grad():
@@ -85,9 +89,9 @@ class GLWP:
 		x = [i.cpu().numpy() for i in x]
 		return np.concatenate(x, axis=0)
 
-	def train(self, dataset):
+	def train(self, labels, dataset):
 		for layer_index in range(len(self.arr_neurons)-1):
-			w, b = self.train_single_layer(layer_index, self.generate_dataset(layer_index, dataset))
+			w, b = self.train_single_layer(layer_index, labels, self.generate_dataset(layer_index, dataset))
 			model = self.get_single_layer_model_forward(self.arr_neurons[layer_index], self.arr_neurons[layer_index+1])
 			model[0].weight = torch.nn.Parameter(torch.from_numpy(w))
 			model[0].bias = torch.nn.Parameter(torch.from_numpy(b))
@@ -106,7 +110,7 @@ class GLWP:
 		y = torch.from_numpy(y)
 		criterion = torch.nn.CrossEntropyLoss()
 		print("Training Classifiers...")
-		optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+		optimizer = torch.optim.SGD(model.parameters(), lr=0.025)
 		model.train()
 		model = model.to(self.device)
 		for epoch in range(self.epochs):
@@ -145,7 +149,7 @@ def main_mnist():
 	glwp.train_classifier(y_train, scaled, model)
 
 	print("\nPre-Trained")
-	glwp.train(scaled)
+	glwp.train(y_train, scaled)
 	model = glwp.final_model
 	glwp.train_classifier(y_train, scaled, model)
 
@@ -153,7 +157,7 @@ def main_cifar():
 	from data.CIFAR.load_cifar import load_data
 	train_x, train_y, test_x, test_y = load_data("./data/CIFAR/")
 	train_x = np.reshape(train_x, (len(train_x), -1))
-	glwp = GLWP(arr_neurons=[2048, 516, 100], input_dims=3072)
+	glwp = GLWP(arr_neurons=[2048, 516, 100], input_dims=3072, epochs=20)
 	scaled = train_x.copy()/255
 
 	print("\nNot Pre-Trained")
@@ -161,9 +165,9 @@ def main_cifar():
 	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
 
 	print("\nPre-Trained")
-	glwp.train(scaled)
+	glwp.train(train_y.astype(np.int64), scaled)
 	model = glwp.final_model
 	glwp.train_classifier(train_y.astype(np.int64), scaled, model)
 
 if __name__ == '__main__':
-	main_cifar()	
+	main_mnist()
